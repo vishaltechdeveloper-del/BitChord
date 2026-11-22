@@ -615,7 +615,18 @@
                 <action android:name="android.media.browse.MediaBrowserService" />
             </intent-filter>
         </service>
-
+        <!-- Push announcements from the SHORTY PLAY backend. -->
+        <service
+                android:name=".fcm.FcmService"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="com.google.firebase.MESSAGING_EVENT" />
+            </intent-filter>
+        </service>
+        <provider
+                android:name="com.google.firebase.provider.FirebaseInitProvider"
+            android:authorities="${applicationId}.firebaseinitprovider"
+            tools:node="remove" />
         <!--
           Commands from the BitChord watch app (wearos/). Exported because Play
           services binds it; only messages from the same package and signing key
