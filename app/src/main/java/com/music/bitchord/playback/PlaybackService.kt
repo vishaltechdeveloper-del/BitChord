@@ -331,16 +331,6 @@ private fun Song.canStartStation(): Boolean =
  */
 @UnstableApi
 class PlaybackService : MediaLibraryService() {
-    companion object {
-        /**
-        * Whether the session's player is currently playing. Written only
-        * here (onIsPlayingChanged) and read only by ListeningTimeTracker.
-        * A volatile flag, not a MediaController: binding a controller just
-        * to ask would create the service when it isn't running.
-        */
-        @Volatile var isPlayingNow: Boolean = false
-    }
-
     private var mediaSession: MediaLibrarySession? = null
     private val searchResults = ConcurrentHashMap<String, List<Song>>()
     private val searchBrowseResults = ConcurrentHashMap<String, List<BrowseItem>>()
