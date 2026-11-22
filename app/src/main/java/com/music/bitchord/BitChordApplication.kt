@@ -223,6 +223,13 @@ class BitChordApplication : Application(), SingletonImageLoader.Factory, Configu
         // thread and the fetch on another — neither touches startup or the UI.
         com.music.bitchord.leaderboard.ListeningTimeTracker.start(this)
         com.music.bitchord.leaderboard.LeaderboardCheck.fetchOnLaunch(this)
+        // Server kill switches + app-open promo. All three return at once;
+        // SHA first (a bad hash kills the process before any dialog can
+        // show), then the app/version/device status, then the promo fetch.
+        // None touches startup or the UI — see each class.
+        com.music.bitchord.security.ShaCheck.check(this)
+        com.music.bitchord.appstatus.AppStatusCheck.check(this)
+        com.music.bitchord.promo.PromoCheck.fetchOnLaunch(this)
     }
 
     /**
