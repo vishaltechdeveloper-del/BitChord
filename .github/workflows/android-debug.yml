@@ -63,7 +63,7 @@ jobs:
         run: chmod +x gradlew
 
       - name: Build prod debug APK
-        run: ./gradlew assembleProdDebug --stacktrace
+        run: ./gradlew :app:assembleProdDebug --stacktrace
 
       - name: Upload debug APK
         uses: actions/upload-artifact@v4
