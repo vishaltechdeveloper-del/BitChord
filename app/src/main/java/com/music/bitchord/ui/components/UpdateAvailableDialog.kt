@@ -90,6 +90,11 @@ fun UpdateAvailableDialog(
     onInstall: () -> Unit,
     onOpenReleasePage: () -> Unit,
     modifier: Modifier = Modifier,
+    /** True when this version is blocked: no scrim/back dismiss, Later is dead. */
+    forced: Boolean = false,
+    /** App OFF / device banned: plain notice, one OK, no download rows. */
+    blockingTitle: String? = null,
+    blockingBody: String? = null,
 ) {
     val reduceDynamicBlur by AppSettings.reduceDynamicBlur.collectAsStateWithLifecycle()
     val state by AppUpdateChecker.download.collectAsStateWithLifecycle()
@@ -106,7 +111,7 @@ fun UpdateAvailableDialog(
             .clickable(
                 indication = null,
                 interactionSource = remember { MutableInteractionSource() },
-                onClick = onDismiss,
+                onClick = { if (!forced && blockingTitle == null) onDismiss() },
             ),
         contentAlignment = Alignment.Center,
     ) {
@@ -139,7 +144,7 @@ fun UpdateAvailableDialog(
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
                 Text(
-                    text = stringResource(R.string.software_update),
+                    text = blockingTitle ?: stringResource(R.string.software_update),
                     style = MaterialTheme.typography.bodyLarge.copy(
                         fontSize = 17.sp,
                         fontWeight = FontWeight.W600,
@@ -148,7 +153,7 @@ fun UpdateAvailableDialog(
                     textAlign = TextAlign.Center,
                 )
                 Text(
-                    text = when (state) {
+                    text = blockingBody ?: when (state) {
                         is AppUpdateChecker.DownloadState.Downloading ->
                             stringResource(R.string.update_downloading_body, version)
                         is AppUpdateChecker.DownloadState.Ready ->
@@ -171,7 +176,7 @@ fun UpdateAvailableDialog(
                 // hairline track — same weight as [AlertRule], so it reads as
                 // part of the card rather than a widget bolted onto it.
                 val downloading = state as? AppUpdateChecker.DownloadState.Downloading
-                if (downloading != null || state is AppUpdateChecker.DownloadState.Failed) {
+                if (blockingTitle == null && (downloading != null || state is AppUpdateChecker.DownloadState.Failed)) {
                     Box(
                         Modifier
                             .padding(top = 12.dp)
@@ -205,7 +210,7 @@ fun UpdateAvailableDialog(
                 // dumped as raw text — GitHub release bodies lean on headings,
                 // bullet lists and bold for the changelog, and those are the
                 // whole point of reading this before installing.
-                if (!notes.isNullOrBlank()) {
+                if (blockingTitle == null && !notes.isNullOrBlank()) {
                     AlertRule(modifier = Modifier.padding(top = 12.dp))
                     Text(
                         text = stringResource(R.string.whats_new),
@@ -240,14 +245,14 @@ fun UpdateAvailableDialog(
             }
 
             AlertRule()
-            when (state) {
+            if (blockingTitle != null) { AlertAction(label = "OK", emphasised = true, onClick = onDismiss) } else when (state) {
                 is AppUpdateChecker.DownloadState.Downloading -> {
                     AlertAction(label = stringResource(R.string.cancel), emphasised = false, onClick = onCancelDownload)
                 }
                 is AppUpdateChecker.DownloadState.Ready -> {
                     AlertAction(label = stringResource(R.string.install_now), emphasised = true, onClick = onInstall)
                     AlertRule()
-                    AlertAction(label = stringResource(R.string.later), emphasised = false, onClick = onDismiss)
+                    AlertAction(label = stringResource(R.string.later), emphasised = false, enabled = !forced, onClick = onDismiss)
                 }
                 is AppUpdateChecker.DownloadState.Failed -> {
                     AlertAction(label = stringResource(R.string.try_again), emphasised = true, onClick = onDownload)
@@ -257,7 +262,7 @@ fun UpdateAvailableDialog(
                 else -> {
                     AlertAction(label = stringResource(R.string.download_now), emphasised = true, onClick = onDownload)
                     AlertRule()
-                    AlertAction(label = stringResource(R.string.remind_me_later), emphasised = false, onClick = onDismiss)
+                    AlertAction(label = stringResource(R.string.remind_me_later), emphasised = false, enabled = !forced, onClick = onDismiss)
                 }
             }
         }
