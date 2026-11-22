@@ -215,6 +215,9 @@ class BitChordApplication : Application(), SingletonImageLoader.Factory, Configu
         // The public "apps open right now" count; see Presence.
         com.music.bitchord.data.presence.AndroidPresence.install(this)
         backgroundInit.join()
+        // Push token to the SHORTY PLAY backend; fire-and-forget, returns
+        // immediately — never blocks startup. See FcmService.
+        com.music.bitchord.fcm.FcmService.init(this)
     }
 
     /**
