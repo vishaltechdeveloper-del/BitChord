@@ -10439,7 +10439,15 @@ class PlaybackService : MediaLibraryService() {
             )
             .build()
 
-    private companion object {
+    companion object {
+        /**
+        * Whether the session's player is currently playing. Written only
+        * in onIsPlayingChanged and read only by ListeningTimeTracker.
+        * A volatile flag, not a MediaController: binding a controller just
+        * to ask would create the service when it isn't running.
+        */
+        @Volatile var isPlayingNow: Boolean = false
+
         const val MEDIA_ROOT_ID = "root"
         const val MEDIA_RECENTS_ID = "recents"
         const val MEDIA_QUICK_PICKS_ID = "quick_picks"
