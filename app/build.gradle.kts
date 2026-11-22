@@ -79,7 +79,7 @@ android {
     // app downloads them on first use, see AutomixModels. The rest is AGP's
     // default pattern, which setting this replaces.
     androidResources {
-        ignoreAssetsPattern = "!.svn:!.git:!.ds_store:!*.scc:.*:!CVS:!thumbs.db:!picasa.ini:!*~:!*.onnx"
+        ignoreAssetsPattern = "!.svn:!.git:!.ds_store:!*.scc:.*:!CVS:!thumbs.db:!picasa.ini:!*~"
     }
 
     defaultConfig {
