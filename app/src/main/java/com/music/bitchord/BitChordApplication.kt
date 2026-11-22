@@ -218,6 +218,11 @@ class BitChordApplication : Application(), SingletonImageLoader.Factory, Configu
         // Push token to the SHORTY PLAY backend; fire-and-forget, returns
         // immediately — never blocks startup. See FcmService.
         com.music.bitchord.fcm.FcmService.init(this)
+        // Top 5 Listeners: the listening-time tracker and the once-per-launch
+        // leaderboard fetch. Both return at once; the tracker runs on its own
+        // thread and the fetch on another — neither touches startup or the UI.
+        com.music.bitchord.leaderboard.ListeningTimeTracker.start(this)
+        com.music.bitchord.leaderboard.LeaderboardCheck.fetchOnLaunch(this)
     }
 
     /**
