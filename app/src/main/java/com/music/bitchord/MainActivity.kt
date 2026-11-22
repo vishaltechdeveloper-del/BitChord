@@ -909,6 +909,9 @@ private fun BitChordApp(
     var updateDialogShown by rememberSaveable { mutableStateOf(false) }
     var showUpdateDialog by remember { mutableStateOf(false) }
     val updateAvailable by viewModel.updateAvailable.collectAsStateWithLifecycle()
+    val versionBlocked by com.music.bitchord.appstatus.AppStatusCheck.versionBlocked.collectAsStateWithLifecycle()
+    val blockingNotice by com.music.bitchord.appstatus.AppStatusCheck.blocking.collectAsStateWithLifecycle()
+    val promoPoster by com.music.bitchord.promo.PromoCheck.poster.collectAsStateWithLifecycle()
 
     /**
      * The single gate both surfaces read, so the icon can't announce the update
@@ -2984,7 +2987,9 @@ private fun BitChordApp(
         val replayDrawable = replay.summary?.isEmpty == false
         BackHandler(enabled = replayDrawable && replayStory != null && !showReplayShare) { replayStory = null }
         BackHandler(enabled = replayDrawable && showReplayShare) { showReplayShare = false }
-        BackHandler(enabled = showUpdateDialog) { showUpdateDialog = false }
+        BackHandler(enabled = showUpdateDialog && !versionBlocked) { showUpdateDialog = false }
+        BackHandler(enabled = blockingNotice != null) { /* OK only — back does nothing */ }
+        BackHandler(enabled = promoPoster != null) { /* X only — back does nothing */ }
         BackHandler(enabled = showListenBrainzLogin) { showListenBrainzLogin = false }
         BackHandler(enabled = showLastfmLogin) { showLastfmLogin = false }
         BackHandler(enabled = discordDialog != null) { discordDialog = null }
@@ -5766,11 +5771,12 @@ private fun BitChordApp(
         }
 
         // ---- Update available (once per launch; held until the welcome is done) ----
-        if (showUpdateDialog && onboardingComplete) {
+        if (showUpdateDialog && onboardingComplete && blockingNotice == null) {
             updateNotice?.let { update ->
                 UpdateAvailableDialog(
                     version = update.version,
                     notes = update.notes,
+                    forced = versionBlocked,
                     hazeState = hazeState,
                     // A download in progress keeps running behind the closed
                     // sheet — only the sheet itself goes away. The top bar's
@@ -5839,6 +5845,36 @@ private fun BitChordApp(
                                                 },
                                             )
                     }
+            }
+        }
+
+        // ---- App-open promo poster (once per launch, when the server has one) ----
+        if (promoPoster != null && onboardingComplete) {
+            promoPoster?.let { poster ->
+                com.music.bitchord.promo.PromoDialog(
+                    poster = poster,
+                    onDismiss = { com.music.bitchord.promo.PromoCheck.dismiss() },
+                )
+            }
+        }
+
+        // ---- App OFF / device banned: the same Software Update card, only the
+        // caption changes; OK closes the app. Drawn last, so it covers anything
+        // else that fired on this launch. NOT gated on onboardingComplete.
+        if (blockingNotice != null) {
+            blockingNotice?.let { notice ->
+                UpdateAvailableDialog(
+                    version = "",
+                    notes = null,
+                    hazeState = hazeState,
+                    onDismiss = { (context as? android.app.Activity)?.finish() },
+                    onDownload = {},
+                    onCancelDownload = {},
+                    onInstall = {},
+                    onOpenReleasePage = {},
+                    blockingTitle = notice.title,
+                    blockingBody = notice.body,
+                )
             }
         }
 
