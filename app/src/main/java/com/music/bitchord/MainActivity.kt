@@ -5799,6 +5799,48 @@ private fun BitChordApp(
                 )
             }
         }
+        // ---- Top 5 Listeners (once per launch, when the day has data) ----
+        val leaderboardData by com.music.bitchord.leaderboard.LeaderboardCheck.dialogData
+            .collectAsStateWithLifecycle()
+        var showLeaderboardShare by rememberSaveable { mutableStateOf(false) }
+        var leaderboardShareData by remember {
+            mutableStateOf<com.music.bitchord.leaderboard.LeaderboardData?>(null)
+        }
+        if (leaderboardData != null && onboardingComplete) {
+            leaderboardData?.let { data ->
+                    com.music.bitchord.leaderboard.LeaderboardDialog(
+                                data = data,
+                                hazeState = hazeState,
+                                onDismiss = { com.music.bitchord.leaderboard.LeaderboardCheck.dismiss() },
+                                onShare = {
+                                                leaderboardShareData = data
+                                                com.music.bitchord.leaderboard.LeaderboardCheck.dismiss()
+                                                            showLeaderboardShare = true
+                                },
+                            )
+            }
+        }
+        if (showLeaderboardShare) {
+            leaderboardShareData?.let { data ->
+                    ModalBottomSheet(
+                                onDismissRequest = {
+                                                showLeaderboardShare = false
+                                                leaderboardShareData = null
+                                },
+                                sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
+                                containerColor = MaterialTheme.colorScheme.background,
+                            ) {
+                                com.music.bitchord.leaderboard.LeaderboardShareSheet(
+                                                data = data,
+                                                holder = account?.name.orEmpty(),
+                                                onDismiss = {
+                                                                    showLeaderboardShare = false
+                                                                    leaderboardShareData = null
+                                                },
+                                            )
+                    }
+            }
+        }
 
         if (showLyricsSources) {
             BackHandler { showLyricsSources = false }
