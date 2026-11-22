@@ -14,16 +14,15 @@ import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.contentOrNull
-import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonPrimitive
 import okhttp3.Request
 import java.io.File
 
 /**
- * BitChord ships as a sideloaded APK off GitHub Releases rather than through
- * a store, so there's nothing to push an update notice on its own — this
- * polls the repo's "latest release" once per launch and compares its tag
- * against the running build.
+ * SHORTY PLAY ships as a sideloaded APK off the user's own server rather
+ * than through a store, so there's nothing to push an update notice on its
+ * own — this polls GET /api/play-version once per launch and compares its
+ * version against the running build.
  *
  * The update itself is also handled here: the release's `.apk` asset is
  * downloaded into the app's cache and handed to the system package installer,
@@ -42,8 +41,12 @@ object AppUpdateChecker {
 
     private const val CACHE_SUBDIR = "updates"
 
-    private const val LATEST_RELEASE_URL =
-        "https://api.github.com/repos/kushagrasinghx/BitChord/releases/latest"
+    /** The Shorty server's live version, not GitHub: this app is SHORTY PLAY,
+     *  and its updates come from the user's own server (config.version). */
+    private const val PLAY_VERSION_URL = "https://zeuvia.vishaltech.site/api/play-version"
+
+    /** Where "open the download page" goes when there is no APK to fetch. */
+    private const val PLAY_PAGE_URL = "https://zeuvia.vishaltech.site/play"
 
     private val json = Json { ignoreUnknownKeys = true }
 
@@ -67,18 +70,17 @@ object AppUpdateChecker {
 
     suspend fun check() = withContext(Dispatchers.IO) {
         runCatching {
-            val request = Request.Builder().url(LATEST_RELEASE_URL).build()
+            val request = Request.Builder().url(PLAY_VERSION_URL).build()
             val body = Http.client.newCall(request).execute().use { response ->
                 if (!response.isSuccessful) null else response.body?.string()
             } ?: return@runCatching
-            val release = json.parseToJsonElement(body) as? JsonObject ?: return@runCatching
-            val tag = release["tag_name"]?.jsonPrimitive?.contentOrNull ?: return@runCatching
-            val url = release["html_url"]?.jsonPrimitive?.contentOrNull ?: return@runCatching
-            val apkUrl = apkAssetUrl(release)
-            val notes = release["body"]?.jsonPrimitive?.contentOrNull
-            val latest = tag.removePrefix("v")
+            val info = json.parseToJsonElement(body) as? JsonObject ?: return@runCatching
+            val latest = info["version"]?.jsonPrimitive?.contentOrNull ?: return@runCatching
+            val apkUrl = info["apkUrl"]?.jsonPrimitive?.contentOrNull
+                ?: info["apkUrl32"]?.jsonPrimitive?.contentOrNull
+            val notes = info["notes"]?.jsonPrimitive?.contentOrNull
             if (isNewer(latest, BuildConfig.VERSION_NAME)) {
-                _available.value = UpdateInfo(latest, url, apkUrl, notes)
+                _available.value = UpdateInfo(latest, PLAY_PAGE_URL, apkUrl, notes)
             }
         }
     }
@@ -92,39 +94,6 @@ object AppUpdateChecker {
     suspend fun clearCache(context: Context) = withContext(Dispatchers.IO) {
         File(context.cacheDir, CACHE_SUBDIR).listFiles()?.forEach { it.delete() }
     }
-
-    /**
-     * One release carries the phone app and the TV app, each as a universal
-     * APK plus per-ABI splits:
-     *
-     *     BitChord-v1.8.apk     BitChord-v1.8_arm64-v8a.apk     ...
-     *     BitChordTV-v1.8.apk   BitChordTV-v1.8_arm64-v8a.apk   ...
-     *
-     * so this app's APKs are the ones named with its own
-     * [BuildConfig.UPDATE_APK_PREFIX] — "BitChord-" never matches a TV file,
-     * since the prefix ends at the hyphen. The universal build (no `_ABI`
-     * suffix) is taken first, as it installs anywhere; failing that, the split
-     * for this device's ABI. A release with neither leaves
-     * [UpdateInfo.apkUrl] null and the UI falls back to opening the releases
-     * page.
-     */
-    private fun apkAssetUrl(release: JsonObject): String? = runCatching {
-        val apks = release["assets"]?.jsonArray
-            ?.mapNotNull { it as? JsonObject }
-            ?.mapNotNull { asset ->
-                val name = asset["name"]?.jsonPrimitive?.contentOrNull ?: return@mapNotNull null
-                val url = asset["browser_download_url"]?.jsonPrimitive?.contentOrNull ?: return@mapNotNull null
-                val ours = name.startsWith(BuildConfig.UPDATE_APK_PREFIX, ignoreCase = true) &&
-                    name.endsWith(".apk", ignoreCase = true) &&
-                    asset["state"]?.jsonPrimitive?.contentOrNull == "uploaded"
-                if (ours) name.removeSuffix(".apk").removeSuffix(".APK") to url else null
-            }
-            .orEmpty()
-        apks.firstOrNull { (name, _) -> '_' !in name }?.second
-            ?: Build.SUPPORTED_ABIS.firstNotNullOfOrNull { abi ->
-                apks.firstOrNull { (name, _) -> name.endsWith("_$abi") }?.second
-            }
-    }.getOrNull()
 
     /**
      * Streams the current update's APK into the app cache, reporting progress
