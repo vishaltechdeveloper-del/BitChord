@@ -2249,6 +2249,18 @@ private fun BitChordApp(
     val notifyPermission = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestPermission(),
     ) { /* Refusing costs the progress notification, not the download. */ }
+    // Ask once at launch (Android 13+), like the original Shorty 1.9.43 did,
+    // so FCM notifications can arrive; the download flow still asks too.
+    LaunchedEffect(Unit) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+                    ContextCompat.checkSelfPermission(
+                            context,
+                        Manifest.permission.POST_NOTIFICATIONS,
+        ) != PackageManager.PERMISSION_GRANTED
+           ) {
+            notifyPermission.launch(Manifest.permission.POST_NOTIFICATIONS)
+        }
+    }
     val storagePermission = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestPermission(),
     ) { granted ->
