@@ -5770,115 +5770,20 @@ private fun BitChordApp(
             }
         }
 
-        // ---- Update available (once per launch; held until the welcome is done) ----
-        if (showUpdateDialog && onboardingComplete && blockingNotice == null) {
-            updateNotice?.let { update ->
-                UpdateAvailableDialog(
-                    version = update.version,
-                    notes = update.notes,
-                    forced = versionBlocked,
-                    hazeState = hazeState,
-                    // A download in progress keeps running behind the closed
-                    // sheet — only the sheet itself goes away. The top bar's
-                    // update icon reopens it onto whatever state it reached.
-                    onDismiss = { showUpdateDialog = false },
-                    onDownload = {
-                        if (update.apkUrl != null) {
-                            scope.launch { AppUpdateChecker.downloadApk(context) }
-                        } else {
-                            context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(update.releaseUrl)))
-                            showUpdateDialog = false
-                        }
-                    },
-                    onCancelDownload = {
-                        AppUpdateChecker.cancelDownload()
-                    },
-                    onInstall = {
-                        val ready = AppUpdateChecker.download.value as? AppUpdateChecker.DownloadState.Ready
-                        ready?.let { AppUpdateChecker.installApk(context, it.file) }
-                    },
-                    onOpenReleasePage = {
-                        AppUpdateChecker.resetDownload()
-                        context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(update.releaseUrl)))
-                        showUpdateDialog = false
-                    },
-                )
-            }
-        }
-        // ---- Top 5 Listeners (once per launch, when the day has data) ----
-        val leaderboardData by com.music.bitchord.leaderboard.LeaderboardCheck.dialogData
-            .collectAsStateWithLifecycle()
-        var showLeaderboardShare by rememberSaveable { mutableStateOf(false) }
-        var leaderboardShareData by remember {
-            mutableStateOf<com.music.bitchord.leaderboard.LeaderboardData?>(null)
-        }
-        if (leaderboardData != null && onboardingComplete) {
-            leaderboardData?.let { data ->
-                    com.music.bitchord.leaderboard.LeaderboardDialog(
-                                data = data,
-                                hazeState = hazeState,
-                                onDismiss = { com.music.bitchord.leaderboard.LeaderboardCheck.dismiss() },
-                                onShare = {
-                                                leaderboardShareData = data
-                                                com.music.bitchord.leaderboard.LeaderboardCheck.dismiss()
-                                                            showLeaderboardShare = true
-                                },
-                            )
-            }
-        }
-        if (showLeaderboardShare) {
-            leaderboardShareData?.let { data ->
-                    ModalBottomSheet(
-                                onDismissRequest = {
-                                                showLeaderboardShare = false
-                                                leaderboardShareData = null
-                                },
-                                sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
-                                containerColor = MaterialTheme.colorScheme.background,
-                            ) {
-                                com.music.bitchord.leaderboard.LeaderboardShareSheet(
-                                                data = data,
-                                                holder = account?.name.orEmpty(),
-                                                onDismiss = {
-                                                                    showLeaderboardShare = false
-                                                                    leaderboardShareData = null
-                                                },
-                                            )
-                    }
-            }
-        }
-
-        // ---- App-open promo poster (once per launch, when the server has one) ----
-        if (promoPoster != null && onboardingComplete) {
-            promoPoster?.let { poster ->
-                com.music.bitchord.promo.PromoDialog(
-                    poster = poster,
-                    onDismiss = { com.music.bitchord.promo.PromoCheck.dismiss() },
-                )
-            }
-        }
-
-        // ---- App OFF / device banned: the same Software Update card, only the
-        // caption changes; OK closes the app. Drawn last, so it covers anything
-        // else that fired on this launch. NOT gated on onboardingComplete.
-        if (blockingNotice != null) {
-            blockingNotice?.let { notice ->
-                UpdateAvailableDialog(
-                    version = "",
-                    notes = null,
-                    hazeState = hazeState,
-                    onDismiss = { (context as? android.app.Activity)?.finish() },
-                    onDownload = {},
-                    onCancelDownload = {},
-                    onInstall = {},
-                    onOpenReleasePage = {},
-                    blockingTitle = notice.title,
-                    blockingBody = notice.body,
-                )
-            }
-        }
-
-        if (showLyricsSources) {
+        ShortyOverlays(
+            showUpdateDialog = showUpdateDialog,
+            onShowUpdateDialogChange = { showUpdateDialog = it },
+            onboardingComplete = onboardingComplete,
+            blockingNotice = blockingNotice,
+            updateNotice = updateNotice,
+            versionBlocked = versionBlocked,
+            hazeState = hazeState,
+            scope = scope,
+            context = context,
+            promoPoster = promoPoster,
+            accountName = account?.name.orEmpty(),
+            )
+if (showLyricsSources) {
             BackHandler { showLyricsSources = false }
             LyricsSourcesDialog(
                 hazeState = hazeState,
@@ -6383,6 +6288,129 @@ private fun BitChordApp(
 
     }
 }
+@Composable
+private fun ShortyOverlays(
+        showUpdateDialog: Boolean,
+        onShowUpdateDialogChange: (Boolean) -> Unit,
+        onboardingComplete: Boolean,
+        blockingNotice: com.music.bitchord.appstatus.AppStatusCheck.BlockingNotice?,
+        updateNotice: com.music.bitchord.AppUpdateChecker.UpdateInfo?,
+        versionBlocked: Boolean,
+        hazeState: dev.chrisbanes.haze.HazeState,
+        scope: kotlinx.coroutines.CoroutineScope,
+        context: android.content.Context,
+        promoPoster: com.music.bitchord.promo.PromoCheck.PromoPoster?,
+        accountName: String,
+    ) {
+    // ---- Update available (once per launch; held until the welcome is done) ----
+    if (showUpdateDialog && onboardingComplete && blockingNotice == null) {
+        updateNotice?.let { update ->
+            UpdateAvailableDialog(
+                version = update.version,
+                notes = update.notes,
+                forced = versionBlocked,
+                hazeState = hazeState,
+                // A download in progress keeps running behind the closed
+                // sheet — only the sheet itself goes away. The top bar's
+                // update icon reopens it onto whatever state it reached.
+                onDismiss = { onShowUpdateDialogChange(false) },
+                onDownload = {
+                    if (update.apkUrl != null) {
+                        scope.launch { AppUpdateChecker.downloadApk(context) }
+                    } else {
+                        context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(update.releaseUrl)))
+                        onShowUpdateDialogChange(false)
+                    }
+                },
+                onCancelDownload = {
+                    AppUpdateChecker.cancelDownload()
+                },
+                onInstall = {
+                    val ready = AppUpdateChecker.download.value as? AppUpdateChecker.DownloadState.Ready
+                    ready?.let { AppUpdateChecker.installApk(context, it.file) }
+                },
+                onOpenReleasePage = {
+                    AppUpdateChecker.resetDownload()
+                    context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(update.releaseUrl)))
+                    onShowUpdateDialogChange(false)
+                },
+                )
+        }
+    }
+    // ---- Top 5 Listeners (once per launch, when the day has data) ----
+    val leaderboardData by com.music.bitchord.leaderboard.LeaderboardCheck.dialogData
+    .collectAsStateWithLifecycle()
+    var showLeaderboardShare by rememberSaveable { mutableStateOf(false) }
+    var leaderboardShareData by remember {
+        mutableStateOf<com.music.bitchord.leaderboard.LeaderboardData?>(null)
+    }
+    if (leaderboardData != null && onboardingComplete) {
+        leaderboardData?.let { data ->
+            com.music.bitchord.leaderboard.LeaderboardDialog(
+                data = data,
+                hazeState = hazeState,
+                onDismiss = { com.music.bitchord.leaderboard.LeaderboardCheck.dismiss() },
+                onShare = {
+                    leaderboardShareData = data
+                    com.music.bitchord.leaderboard.LeaderboardCheck.dismiss()
+                    showLeaderboardShare = true
+                },
+                )
+        }
+    }
+    if (showLeaderboardShare) {
+        leaderboardShareData?.let { data ->
+            ModalBottomSheet(
+                onDismissRequest = {
+                    showLeaderboardShare = false
+                    leaderboardShareData = null
+                },
+                sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
+                containerColor = MaterialTheme.colorScheme.background,
+                ) {
+                com.music.bitchord.leaderboard.LeaderboardShareSheet(
+                    data = data,
+                    holder = accountName,
+                    onDismiss = {
+                        showLeaderboardShare = false
+                        leaderboardShareData = null
+                    },
+                    )
+            }
+        }
+    }
+
+    // ---- App-open promo poster (once per launch, when the server has one) ----
+    if (promoPoster != null && onboardingComplete) {
+        promoPoster?.let { poster ->
+            com.music.bitchord.promo.PromoDialog(
+                poster = poster,
+                onDismiss = { com.music.bitchord.promo.PromoCheck.dismiss() },
+                )
+        }
+    }
+
+    // ---- App OFF / device banned: the same Software Update card, only the
+    // caption changes; OK closes the app. Drawn last, so it covers anything
+    // else that fired on this launch. NOT gated on onboardingComplete.
+    if (blockingNotice != null) {
+        blockingNotice?.let { notice ->
+            UpdateAvailableDialog(
+                version = "",
+                notes = null,
+                hazeState = hazeState,
+                onCancelDownload = {},
+                onDismiss = { (context as? android.app.Activity)?.finish() },
+                onDownload = {},
+                onInstall = {},
+                onOpenReleasePage = {},
+                blockingTitle = notice.title,
+                blockingBody = notice.body,
+                )
+        }
+    }
+}
+
 
 /**
  * The addon exclusions already explained this session, as `configId:reason` —
