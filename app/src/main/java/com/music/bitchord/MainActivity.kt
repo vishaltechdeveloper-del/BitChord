@@ -6289,6 +6289,7 @@ if (showLyricsSources) {
     }
 }
 @Composable
+@OptIn(ExperimentalMaterial3Api::class)
 private fun ShortyOverlays(
         showUpdateDialog: Boolean,
         onShowUpdateDialogChange: (Boolean) -> Unit,
