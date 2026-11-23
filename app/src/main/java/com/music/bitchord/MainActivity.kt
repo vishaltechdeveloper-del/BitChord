@@ -6293,13 +6293,13 @@ private fun ShortyOverlays(
         showUpdateDialog: Boolean,
         onShowUpdateDialogChange: (Boolean) -> Unit,
         onboardingComplete: Boolean,
-        blockingNotice: com.music.bitchord.appstatus.AppStatusCheck.BlockingNotice?,
-        updateNotice: com.music.bitchord.AppUpdateChecker.UpdateInfo?,
+        blockingNotice: com.music.bitchord.appstatus.BlockingNotice?,
+        updateNotice: com.music.bitchord.data.AppUpdateChecker.UpdateInfo?,
         versionBlocked: Boolean,
         hazeState: dev.chrisbanes.haze.HazeState,
         scope: kotlinx.coroutines.CoroutineScope,
         context: android.content.Context,
-        promoPoster: com.music.bitchord.promo.PromoCheck.PromoPoster?,
+        promoPoster: com.music.bitchord.promo.PromoPoster?,
         accountName: String,
     ) {
     // ---- Update available (once per launch; held until the welcome is done) ----
